@@ -1,0 +1,42 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'flashsale-system'
+    environment: 'development'
+
+scrape_configs:
+  # Go Application Metrics
+  - job_name: 'flashsale-app'
+    static_configs:
+      - targets: ['app:9100']
+        labels:
+          service: 'backend'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL Metrics (requires postgres_exporter, optional)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+        labels:
+          service: 'database'
+
+  # Redis Metrics (requires redis_exporter, optional)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'cache'
+
+  # Kafka Metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+        labels:
+          service: 'message-queue'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

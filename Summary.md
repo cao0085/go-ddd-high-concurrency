@@ -7,7 +7,7 @@
 - Monitoring: Prometheus 3.1.0 + Grafana 11.4.0
 - Frontend: Command line
 
-# Docker Containers (6 services)
+## Docker Containers (6 services)
 
 1. **postgres:17.2-alpine** - Main database (inventory, orders, payments)
 2. **redis:7.4.1-alpine** - Distributed cache + atomic operations
@@ -15,6 +15,25 @@
 4. **prom/prometheus:v3.1.0** - Metrics collection
 5. **grafana/grafana:11.4.0** - Monitoring dashboard
 6. **Go app** - Backend service (built from Dockerfile)
+
+## PostgreSQL
+
+``` bash
+psql -U flashsale -d postgres
+```
+
+``` bash
+# 查看db
+postgres=# \l
+
+# 進入db
+\c dbName
+\dt
+
+# 查看表結構
+\d tableName
+```
+
 
 
 <!-- 

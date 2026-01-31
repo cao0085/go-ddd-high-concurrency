@@ -1,11 +1,12 @@
-// internal/application/product/create_product.go
 package product
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"flash-sale-order-system/internal/Infrastructure/idgen"
+	"flash-sale-order-system/internal/Infrastructure/persistence/tx"
 	domain "flash-sale-order-system/internal/domain/product"
 	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
@@ -15,23 +16,26 @@ type CreateProductCommand struct {
 	Description string
 	SKU         string
 	Quantity    int32
-	Prices      map[shareddomain.Currency]shareddomain.Money // 價格
-	PriceFrom   time.Time                                    // 價格生效時間
-	PriceUntil  *time.Time                                   // 價格結束時間（nil = 永久）
+	Prices      map[shareddomain.Currency]shareddomain.Money
+	PriceFrom   time.Time
+	PriceUntil  *time.Time
 }
 
 type CreateProductHandler struct {
+	db          *sql.DB
 	idGenerator *idgen.IDGenerator
 	productRepo domain.ProductRepository
 	pricingRepo domain.ProductPricingRepository
 }
 
 func NewCreateProductHandler(
+	db *sql.DB,
 	idGen *idgen.IDGenerator,
 	productRepo domain.ProductRepository,
 	pricingRepo domain.ProductPricingRepository,
 ) *CreateProductHandler {
 	return &CreateProductHandler{
+		db:          db,
 		idGenerator: idGen,
 		productRepo: productRepo,
 		pricingRepo: pricingRepo,
@@ -39,10 +43,10 @@ func NewCreateProductHandler(
 }
 
 func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductCommand) (int64, error) {
-	// 1. 產生 ID
+	// 1. snowflake id generator
 	productID := h.idGenerator.Generate()
 
-	// 2. 建立 Product
+	// 2. Product Aggregate
 	product, err := domain.NewProduct(
 		productID,
 		cmd.Name,
@@ -54,7 +58,7 @@ func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 		return 0, err
 	}
 
-	// 3. 建立 ProductPricing
+	// 3. ProductPricing Aggregate
 	pricing := domain.NewProductPricing(productID)
 
 	prices, err := domain.NewMultiCurrencyPrice(cmd.Prices)
@@ -66,13 +70,18 @@ func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 		return 0, err
 	}
 
-	// 4. 儲存 Product
-	if err := h.productRepo.Save(ctx, product); err != nil {
-		return 0, err
-	}
+	// 4. Transactional Save
+	err = tx.WithTx(ctx, h.db, func(txCtx context.Context) error {
+		if err := h.productRepo.Insert(txCtx, product); err != nil {
+			return err
+		}
+		if err := h.pricingRepo.Save(txCtx, pricing); err != nil {
+			return err
+		}
+		return nil
+	})
 
-	// 5. 儲存 Pricing
-	if err := h.pricingRepo.Save(ctx, pricing); err != nil {
+	if err != nil {
 		return 0, err
 	}
 

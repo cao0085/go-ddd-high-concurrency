@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 type Currency string
@@ -63,4 +64,9 @@ func (m Money) ConvertTo(target Currency, exchangeRate float64) Money {
 		amount:   round(newAmount, precision),
 		currency: target,
 	}
+}
+
+func round(value float64, precision int) float64 {
+	multiplier := math.Pow(10, float64(precision))
+	return math.Round(value*multiplier) / multiplier
 }

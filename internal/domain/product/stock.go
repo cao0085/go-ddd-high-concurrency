@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+// Value Object
 type Stock struct {
 	available int32
 	reserved  int32

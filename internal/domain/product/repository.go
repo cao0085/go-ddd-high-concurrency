@@ -2,8 +2,8 @@ package product
 
 import "context"
 
-// Repository is the interface for Product aggregate
-type Repository interface {
+// ProductRepository is the interface for Product aggregate
+type ProductRepository interface {
 	// 基本 CRUD
 	FindByID(ctx context.Context, id int64) (*Product, error)
 	Save(ctx context.Context, p *Product) error
@@ -17,8 +17,8 @@ type Repository interface {
 	UpdateStock(ctx context.Context, productID int64, newStock Stock) error
 }
 
-// PricingRepository is the interface for ProductPricing aggregate
-type PricingRepository interface {
+// ProductPricingRepository is the interface for ProductPricing aggregate
+type ProductPricingRepository interface {
 	FindByProductID(ctx context.Context, productID int64) (*ProductPricing, error)
 	Save(ctx context.Context, pricing *ProductPricing) error
 	Delete(ctx context.Context, productID int64) error

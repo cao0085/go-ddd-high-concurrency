@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	domain "flash-sale-order-system/internal/domain/product"
 	"flash-sale-order-system/internal/Infrastructure/idgen"
+	domain "flash-sale-order-system/internal/domain/product"
 	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
 
@@ -22,14 +22,14 @@ type CreateProductCommand struct {
 
 type CreateProductHandler struct {
 	idGenerator *idgen.IDGenerator
-	productRepo domain.Repository
-	pricingRepo domain.PricingRepository
+	productRepo domain.ProductRepository
+	pricingRepo domain.ProductPricingRepository
 }
 
 func NewCreateProductHandler(
 	idGen *idgen.IDGenerator,
-	productRepo domain.Repository,
-	pricingRepo domain.PricingRepository,
+	productRepo domain.ProductRepository,
+	pricingRepo domain.ProductPricingRepository,
 ) *CreateProductHandler {
 	return &CreateProductHandler{
 		idGenerator: idGen,

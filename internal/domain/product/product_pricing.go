@@ -31,7 +31,7 @@ func (pp *ProductPricing) AddPeriod(
 		return err
 	}
 
-	if pp.hasOverlap(from, until) {
+	if pp.hasOverlap(from, until, prices) {
 		return ErrPeriodOverlap
 	}
 
@@ -56,9 +56,9 @@ func (pp *ProductPricing) GetPriceForCurrency(now time.Time, currency shareddoma
 	return prices.GetPrice(currency)
 }
 
-func (pp *ProductPricing) hasOverlap(from time.Time, until *time.Time) bool {
+func (pp *ProductPricing) hasOverlap(from time.Time, until *time.Time, prices MultiCurrencyPrice) bool {
 	for _, period := range pp.periods {
-		if period.Overlaps(from, until) {
+		if period.Overlaps(from, until, prices) {
 			return true
 		}
 	}

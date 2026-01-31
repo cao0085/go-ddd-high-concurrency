@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	tx "flash-sale-order-system/internal/Infrastructure/persistence/tx"
 	product "flash-sale-order-system/internal/domain/product"
-	"flash-sale-order-system/internal/Infrastructure/persistence/tx"
 )
 
 type PostgresProductPricingRepository struct {
@@ -20,23 +20,13 @@ func NewPostgresProductPricingRepository(db *sql.DB) product.ProductPricingRepos
 func (r *PostgresProductPricingRepository) Save(ctx context.Context, pricing *product.ProductPricing) error {
 	conn := tx.GetConn(ctx, r.db)
 
+	// 每個 period + 每個幣別 = 一筆 row
 	for _, period := range pricing.Periods() {
-		// 插入 price_period
-		_, err := conn.ExecContext(ctx, `
-			INSERT INTO product_price_periods (product_id, price_from, price_until)
-			VALUES ($1, $2, $3)
-		`, pricing.ProductID(), period.From(), period.Until())
-
-		if err != nil {
-			return fmt.Errorf("failed to insert price period: %w", err)
-		}
-
-		// 插入每個幣別的價格
 		for currency, money := range period.Prices().GetAllPrices() {
-			_, err = conn.ExecContext(ctx, `
-				INSERT INTO product_prices (product_id, currency, amount, price_from)
-				VALUES ($1, $2, $3, $4)
-			`, pricing.ProductID(), currency, money.Amount(), period.From())
+			_, err := conn.ExecContext(ctx, `
+				INSERT INTO product_prices (product_id, currency, amount, valid_from, valid_until)
+				VALUES ($1, $2, $3, $4, $5)
+			`, pricing.ProductID(), currency, money.Amount(), period.ValidFrom(), period.ValidUntil())
 
 			if err != nil {
 				return fmt.Errorf("failed to insert price for currency %s: %w", currency, err)

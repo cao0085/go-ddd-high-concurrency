@@ -39,7 +39,13 @@ func (p PricePeriod) IsValidAt(t time.Time) bool {
 	return true
 }
 
-func (p PricePeriod) Overlaps(from time.Time, until *time.Time) bool {
+func (p PricePeriod) Overlaps(from time.Time, until *time.Time, prices MultiCurrencyPrice) bool {
+	// 1. 先檢查是否有相同幣別
+	if !p.hasCommonCurrency(prices) {
+		return false // 沒有相同幣別，不算重疊
+	}
+
+	// 2. 再檢查時間重疊
 	// 區間 A: [p.validFrom, p.validUntil]
 	// 區間 B: [from, until]
 	// 重疊條件: A.start <= B.end AND B.start <= A.end
@@ -55,6 +61,15 @@ func (p PricePeriod) Overlaps(from time.Time, until *time.Time) bool {
 	}
 
 	return true
+}
+
+func (p PricePeriod) hasCommonCurrency(other MultiCurrencyPrice) bool {
+	for currency := range other.GetAllPrices() {
+		if _, err := p.prices.GetPrice(currency); err == nil {
+			return true // 找到相同幣別
+		}
+	}
+	return false
 }
 
 // Getters

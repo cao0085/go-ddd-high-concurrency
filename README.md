@@ -1,6 +1,24 @@
-# Flash Sale Order System
+# Flash Sale Order System (OnGoing)
 
 A high-concurrency flash sale system built with Go, demonstrating solutions to common distributed system challenges.
+
+## Progress
+
+### ✅ Completed
+- **DDD Domain Layer** - Product aggregate, value objects (Money, Stock, Currency), domain errors
+- **DDD Application Layer** - CreateProduct use case with command pattern
+- **DDD Infrastructure Layer** - PostgreSQL repositories, transaction manager, Snowflake ID generator
+- **DDD Interface Layer** - Gin HTTP router, handlers with request/response DTOs
+- **Docker Infrastructure** - PostgreSQL, Redis, Kafka, Prometheus, Grafana
+
+### 🚧 Next Steps
+- [ ] Complete SQL schema and migrations
+- [ ] Implement full domain logic (Order, User aggregates)
+- [ ] Redis stock caching and atomic decrement
+- [ ] Kafka order message producer/consumer
+- [ ] Distributed lock for overselling prevention
+
+---
 
 ## Core Challenges Addressed
 
@@ -12,7 +30,7 @@ A high-concurrency flash sale system built with Go, demonstrating solutions to c
 
 ## Tech Stack
 
-- **Backend**: Go 1.23.4
+- **Backend**: Go 1.24.0
 - **Database**: PostgreSQL 17.2
 - **Cache**: Redis 7.4.1
 - **Message Queue**: Kafka 3.8.1 (KRaft mode)
@@ -79,26 +97,41 @@ make redis-cli   # Connect to Redis
 make clean       # Remove all containers and volumes
 ```
 
-## Project Structure
+## Project Structure (DDD)
 
 ```
 .
 ├── cmd/
-│   └── api/                 # Main application entry point
+│   └── api/                          # Application entry point & DI
 ├── internal/
-│   ├── handler/            # HTTP handlers
-│   ├── service/            # Business logic
-│   ├── repository/         # Database operations
-│   ├── model/              # Data models
-│   └── middleware/         # Middleware (logging, metrics, etc.)
-├── pkg/
-│   ├── database/           # PostgreSQL client
-│   ├── redis/              # Redis client
-│   ├── kafka/              # Kafka producer/consumer
-│   └── metrics/            # Prometheus metrics
-├── config/                  # Configuration files
-├── scripts/                 # Database initialization scripts
-├── monitoring/              # Prometheus & Grafana configs
+│   ├── domain/                       # Domain Layer
+│   │   └── product/                  # Product aggregate
+│   │       ├── product.go            # Aggregate root
+│   │       ├── product_pricing.go    # Pricing aggregate
+│   │       ├── stock.go              # Value object
+│   │       ├── repository.go         # Repository interfaces
+│   │       └── errors.go             # Domain errors
+│   ├── application/                  # Application Layer
+│   │   └── product/                  # Use cases
+│   │       └── create_product.go     # Command handler
+│   ├── Infrastructure/               # Infrastructure Layer
+│   │   ├── persistence/
+│   │   │   ├── postgres/             # Database connection
+│   │   │   ├── repository/           # Repository implementations
+│   │   │   └── tx/                   # Transaction manager
+│   │   └── idgen/                    # Snowflake ID generator
+│   ├── interfaces/                   # Interface Layer
+│   │   └── http/
+│   │       ├── handler/              # HTTP handlers
+│   │       ├── middleware/           # Middleware
+│   │       └── router.go             # Gin router
+│   └── shared/                       # Shared kernel
+│       └── domain/                   # Shared value objects
+│           ├── money.go
+│           ├── multi_currency_price.go
+│           └── errors.go
+├── scripts/                          # Database init scripts
+├── monitoring/                       # Prometheus & Grafana configs
 ├── docker-compose.yml
 ├── Dockerfile
 └── Makefile
@@ -157,38 +190,3 @@ Access Grafana at http://localhost:3000 to view:
 ## License
 
 MIT
-
-### flow
-根据 README.md 的架构图，完整实现后应该是这样的:
-
-
-1. 用户发送抢购请求
-   POST /api/orders
-   Body: { "product_id": 123, "user_id": 456, "quantity": 1 }
-   
-2. Handler 层 (internal/handler)
-   - 接收 HTTP 请求
-   - 参数验证
-   - 调用 Service 层
-   
-3. Service 层 (internal/service)
-   - Redis 原子操作扣减库存 (DECR)
-   - 如果库存充足，发送订单消息到 Kafka
-   - 返回"排队中"状态
-   
-4. Kafka 消息队列
-   - 异步解耦，防止流量冲击数据库
-   
-5. Kafka Consumer
-   - 消费订单消息
-   - 调用 Repository 层
-   
-6. Repository 层 (internal/repository)
-   - PostgreSQL 事务处理
-   - 创建订单记录
-   - 使用 SELECT FOR UPDATE 锁定库存行
-   - 更新库存数量
-   
-7. 定期同步
-   - Redis 库存 → PostgreSQL 库存
-   - 保证数据最终一致性

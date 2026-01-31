@@ -1,17 +1,21 @@
 // price_period.go
 package product
 
-import "time"
+import (
+	"time"
+
+	shareddomain "flash-sale-order-system/internal/shared/domain"
+)
 
 // Value Object
 type PricePeriod struct {
-	prices     MultiCurrencyPrice
+	prices     shareddomain.MultiCurrencyPrice
 	validFrom  time.Time
 	validUntil *time.Time
 }
 
 func NewPricePeriod(
-	prices MultiCurrencyPrice,
+	prices shareddomain.MultiCurrencyPrice,
 	from time.Time,
 	until *time.Time,
 ) (PricePeriod, error) {
@@ -39,7 +43,7 @@ func (p PricePeriod) IsValidAt(t time.Time) bool {
 	return true
 }
 
-func (p PricePeriod) Overlaps(from time.Time, until *time.Time, prices MultiCurrencyPrice) bool {
+func (p PricePeriod) Overlaps(from time.Time, until *time.Time, prices shareddomain.MultiCurrencyPrice) bool {
 	// 1. 先檢查是否有相同幣別
 	if !p.hasCommonCurrency(prices) {
 		return false // 沒有相同幣別，不算重疊
@@ -63,7 +67,7 @@ func (p PricePeriod) Overlaps(from time.Time, until *time.Time, prices MultiCurr
 	return true
 }
 
-func (p PricePeriod) hasCommonCurrency(other MultiCurrencyPrice) bool {
+func (p PricePeriod) hasCommonCurrency(other shareddomain.MultiCurrencyPrice) bool {
 	for currency := range other.GetAllPrices() {
 		if _, err := p.prices.GetPrice(currency); err == nil {
 			return true // 找到相同幣別
@@ -73,6 +77,6 @@ func (p PricePeriod) hasCommonCurrency(other MultiCurrencyPrice) bool {
 }
 
 // Getters
-func (p PricePeriod) Prices() MultiCurrencyPrice { return p.prices }
+func (p PricePeriod) Prices() shareddomain.MultiCurrencyPrice { return p.prices }
 func (p PricePeriod) ValidFrom() time.Time       { return p.validFrom }
 func (p PricePeriod) ValidUntil() *time.Time     { return p.validUntil }

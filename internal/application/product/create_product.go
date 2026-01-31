@@ -61,7 +61,7 @@ func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 	// 3. ProductPricing Aggregate
 	pricing := domain.NewProductPricing(productID)
 
-	prices, err := domain.NewMultiCurrencyPrice(cmd.Prices)
+	prices, err := shareddomain.NewMultiCurrencyPrice(cmd.Prices)
 	if err != nil {
 		return 0, err
 	}

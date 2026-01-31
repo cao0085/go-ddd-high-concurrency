@@ -31,9 +31,7 @@ const (
 
 // Pricing errors
 var (
-	ErrPeriodOverlap       = errors.New("price period overlaps with existing period")
-	ErrInvalidPeriod       = errors.New("invalid period: end time is before start time")
-	ErrNoPriceFound        = errors.New("no valid price found for the given time")
-	ErrCurrencyNotFound    = errors.New("price not available for currency")
-	ErrEmptyMultiCurrency  = errors.New("multi currency price must have at least one price")
+	ErrPeriodOverlap = errors.New("price period overlaps with existing period")
+	ErrInvalidPeriod = errors.New("invalid period: end time is before start time")
+	ErrNoPriceFound  = errors.New("no valid price found for the given time")
 )

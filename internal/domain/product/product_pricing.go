@@ -21,7 +21,7 @@ func NewProductPricing(productID int64) *ProductPricing {
 }
 
 func (pp *ProductPricing) AddPeriod(
-	prices MultiCurrencyPrice,
+	prices shareddomain.MultiCurrencyPrice,
 	from time.Time,
 	until *time.Time,
 ) error {
@@ -39,13 +39,13 @@ func (pp *ProductPricing) AddPeriod(
 	return nil
 }
 
-func (pp *ProductPricing) GetCurrentPrices(now time.Time) (MultiCurrencyPrice, error) {
+func (pp *ProductPricing) GetCurrentPrices(now time.Time) (shareddomain.MultiCurrencyPrice, error) {
 	for _, period := range pp.periods {
 		if period.IsValidAt(now) {
 			return period.Prices(), nil
 		}
 	}
-	return MultiCurrencyPrice{}, ErrNoPriceFound
+	return shareddomain.MultiCurrencyPrice{}, ErrNoPriceFound
 }
 
 func (pp *ProductPricing) GetPriceForCurrency(now time.Time, currency shareddomain.Currency) (shareddomain.Money, error) {
@@ -56,7 +56,7 @@ func (pp *ProductPricing) GetPriceForCurrency(now time.Time, currency shareddoma
 	return prices.GetPrice(currency)
 }
 
-func (pp *ProductPricing) hasOverlap(from time.Time, until *time.Time, prices MultiCurrencyPrice) bool {
+func (pp *ProductPricing) hasOverlap(from time.Time, until *time.Time, prices shareddomain.MultiCurrencyPrice) bool {
 	for _, period := range pp.periods {
 		if period.Overlaps(from, until, prices) {
 			return true

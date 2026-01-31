@@ -20,7 +20,6 @@ func NewPostgresProductPricingRepository(db *sql.DB) product.ProductPricingRepos
 func (r *PostgresProductPricingRepository) Save(ctx context.Context, pricing *product.ProductPricing) error {
 	conn := tx.GetConn(ctx, r.db)
 
-	// 每個 period + 每個幣別 = 一筆 row
 	for _, period := range pricing.Periods() {
 		for currency, money := range period.Prices().GetAllPrices() {
 			_, err := conn.ExecContext(ctx, `

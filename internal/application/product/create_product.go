@@ -2,52 +2,79 @@
 package product
 
 import (
-    "context"
-    
-    domain "flash-sale-order-system/internal/domain/product"
-    shared "flash-sale-order-system/internal/shared/domain"
+	"context"
+	"time"
+
+	domain "flash-sale-order-system/internal/domain/product"
+	"flash-sale-order-system/internal/Infrastructure/idgen"
+	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
 
-type CreateProductInfoCommand struct {
-    Name           string
-    InitialStock   int32
-    Prices         map[string]float64 // currency code to amount
+type CreateProductCommand struct {
+	Name        string
+	Description string
+	SKU         string
+	Quantity    int32
+	Prices      map[shareddomain.Currency]shareddomain.Money // 價格
+	PriceFrom   time.Time                                    // 價格生效時間
+	PriceUntil  *time.Time                                   // 價格結束時間（nil = 永久）
 }
 
 type CreateProductHandler struct {
-    productRepo domain.Repository
+	idGenerator *idgen.IDGenerator
+	productRepo domain.Repository
+	pricingRepo domain.PricingRepository
 }
 
-func NewCreateProductHandler(repo domain.Repository) *CreateProductHandler {
-    return &CreateProductHandler{productRepo: repo}
+func NewCreateProductHandler(
+	idGen *idgen.IDGenerator,
+	productRepo domain.Repository,
+	pricingRepo domain.PricingRepository,
+) *CreateProductHandler {
+	return &CreateProductHandler{
+		idGenerator: idGen,
+		productRepo: productRepo,
+		pricingRepo: pricingRepo,
+	}
 }
 
-func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductInfoCommand) error {
+func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductCommand) (int64, error) {
+	// 1. 產生 ID
+	productID := h.idGenerator.Generate()
 
-    stock, err := domain.NewStock(cmd.InitialStock)
-    if err != nil {
-        return err
-    }
-    
-    prices := make(map[shared.Currency]shared.Money)
-    for currencyStr, amount := range cmd.Prices {
-        currency := shared.Currency(currencyStr)
-        money, err := shared.NewMoney(amount, currency)
-        if err != nil {
-            return err
-        }
-        prices[currency] = money
-    }
-    
-    multiCurrencyPrice, err := domain.NewMultiCurrencyPrice(prices)
-    if err != nil {
-        return err
-    }
+	// 2. 建立 Product
+	product, err := domain.NewProduct(
+		productID,
+		cmd.Name,
+		cmd.Description,
+		cmd.SKU,
+		cmd.Quantity,
+	)
+	if err != nil {
+		return 0, err
+	}
 
-    prod, err := domain.NewProduct(cmd.Name, stock, multiCurrencyPrice)
-    if err != nil {
-        return err
-    }
-    
-    return h.productRepo.Save(ctx, prod)
+	// 3. 建立 ProductPricing
+	pricing := domain.NewProductPricing(productID)
+
+	prices, err := domain.NewMultiCurrencyPrice(cmd.Prices)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := pricing.AddPeriod(prices, cmd.PriceFrom, cmd.PriceUntil); err != nil {
+		return 0, err
+	}
+
+	// 4. 儲存 Product
+	if err := h.productRepo.Save(ctx, product); err != nil {
+		return 0, err
+	}
+
+	// 5. 儲存 Pricing
+	if err := h.pricingRepo.Save(ctx, pricing); err != nil {
+		return 0, err
+	}
+
+	return productID, nil
 }

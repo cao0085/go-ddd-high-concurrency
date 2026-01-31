@@ -1,9 +1,6 @@
 package product
 
 import (
-	"errors"
-	"fmt"
-
 	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
 
@@ -16,7 +13,7 @@ type MultiCurrencyPrice struct {
 // Create a copy to ensure immutability
 func NewMultiCurrencyPrice(prices map[shareddomain.Currency]shareddomain.Money) (MultiCurrencyPrice, error) {
 	if len(prices) == 0 {
-		return MultiCurrencyPrice{}, errors.New("multi currency price must have at least one price")
+		return MultiCurrencyPrice{}, ErrEmptyMultiCurrency
 	}
 
 	pricesCopy := make(map[shareddomain.Currency]shareddomain.Money, len(prices))
@@ -30,7 +27,7 @@ func NewMultiCurrencyPrice(prices map[shareddomain.Currency]shareddomain.Money) 
 func (p MultiCurrencyPrice) GetPrice(currency shareddomain.Currency) (shareddomain.Money, error) {
 	price, exists := p.prices[currency]
 	if !exists {
-		return shareddomain.Money{}, fmt.Errorf("price not available for currency: %s", currency)
+		return shareddomain.Money{}, ErrCurrencyNotFound
 	}
 	return price, nil
 }

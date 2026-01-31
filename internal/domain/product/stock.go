@@ -1,9 +1,6 @@
 package product
 
-import (
-	"errors"
-	"math"
-)
+import "math"
 
 // Value Object
 type Stock struct {
@@ -13,17 +10,17 @@ type Stock struct {
 
 func NewStock(available int32) (Stock, error) {
 	if available < 0 {
-		return Stock{}, errors.New("stock cannot be negative")
+		return Stock{}, ErrNegativeStock
 	}
 	return Stock{available: available, reserved: 0}, nil
 }
 
 func (s Stock) Add(quantity int32) (Stock, error) {
 	if quantity < 0 {
-		return s, errors.New("quantity to add cannot be negative")
+		return s, ErrNegativeQuantity
 	}
 	if quantity > 100000 || s.available > math.MaxInt32-quantity {
-		return s, errors.New("stock overflow")
+		return s, ErrStockOverflow
 	}
 	return Stock{
 		available: s.available + quantity,
@@ -33,10 +30,10 @@ func (s Stock) Add(quantity int32) (Stock, error) {
 
 func (s Stock) Reserve(quantity int32) (Stock, error) {
 	if quantity <= 0 {
-		return s, errors.New("quantity must be positive")
+		return s, ErrNonPositiveQuantity
 	}
 	if s.available < quantity {
-		return s, errors.New("insufficient stock")
+		return s, ErrInsufficientStock
 	}
 	return Stock{
 		available: s.available - quantity,
@@ -46,7 +43,7 @@ func (s Stock) Reserve(quantity int32) (Stock, error) {
 
 func (s Stock) ConfirmReservation(quantity int32) (Stock, error) {
 	if s.reserved < quantity {
-		return s, errors.New("insufficient reserved stock to confirm")
+		return s, ErrInsufficientReserved
 	}
 
 	return Stock{
@@ -57,7 +54,7 @@ func (s Stock) ConfirmReservation(quantity int32) (Stock, error) {
 
 func (s Stock) CancelReservation(quantity int32) (Stock, error) {
 	if s.reserved < quantity {
-		return s, errors.New("insufficient reserved stock to cancel")
+		return s, ErrInsufficientReserved
 	}
 
 	return Stock{
@@ -71,7 +68,7 @@ func (s Stock) AdjustAvailable(delta int32) (Stock, error) {
 	newAvailable := s.available + delta
 
 	if newAvailable < 0 {
-		return Stock{}, errors.New("insufficient stock for adjustment")
+		return Stock{}, ErrInsufficientStock
 	}
 
 	return Stock{

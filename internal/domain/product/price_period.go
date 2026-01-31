@@ -1,10 +1,7 @@
 // price_period.go
 package product
 
-import (
-	"errors"
-	"time"
-)
+import "time"
 
 // Value Object
 type PricePeriod struct {
@@ -20,7 +17,7 @@ func NewPricePeriod(
 ) (PricePeriod, error) {
 
 	if until != nil && until.Before(from) {
-		return PricePeriod{}, errors.New("invalid period: end time is before start time")
+		return PricePeriod{}, ErrInvalidPeriod
 	}
 
 	return PricePeriod{

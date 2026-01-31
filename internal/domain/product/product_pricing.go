@@ -2,7 +2,6 @@
 package product
 
 import (
-	"errors"
 	"time"
 
 	shareddomain "flash-sale-order-system/internal/shared/domain"
@@ -33,7 +32,7 @@ func (pp *ProductPricing) AddPeriod(
 	}
 
 	if pp.hasOverlap(from, until) {
-		return errors.New("price period overlaps with existing period")
+		return ErrPeriodOverlap
 	}
 
 	pp.periods = append(pp.periods, period)
@@ -46,7 +45,7 @@ func (pp *ProductPricing) GetCurrentPrices(now time.Time) (MultiCurrencyPrice, e
 			return period.Prices(), nil
 		}
 	}
-	return MultiCurrencyPrice{}, errors.New("no valid price found for the given time")
+	return MultiCurrencyPrice{}, ErrNoPriceFound
 }
 
 func (pp *ProductPricing) GetPriceForCurrency(now time.Time, currency shareddomain.Currency) (shareddomain.Money, error) {

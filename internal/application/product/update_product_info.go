@@ -8,10 +8,10 @@ type UpdateProductInfoCommand struct {
 }
 
 type UpdateProductInfoHandler struct {
-    productRepo product.Repository
+    productRepo domain.Repository
 }
 
-func NewUpdateProductInfoHandler(repo product.Repository) *UpdateProductInfoHandler {
+func NewUpdateProductInfoHandler(repo domain.Repository) *UpdateProductInfoHandler {
 	return &UpdateProductInfoHandler{productRepo: repo}
 }
 
@@ -32,20 +32,16 @@ func (h *UpdateProductInfoHandler) Handle(ctx context.Context, cmd UpdateProduct
         prices[currency] = money
     }
     
-    // 2. 建立新的價格清單
-    priceList, err := product.NewPriceList(cmd.Prices)
+    // 2. 建立新的多幣別價格
+    multiCurrencyPrice, err := domain.NewMultiCurrencyPrice(prices)
     if err != nil {
         return err
     }
-    
+
     // 3. 更新商品資訊 (不影響庫存)
-    if err := prod.UpdateInfo(cmd.Name, priceList); err != nil {
+    if err := prod.UpdateInfo(cmd.Name, multiCurrencyPrice); err != nil {
         return err
     }
-
-	for currency, money := range cmd.Prices {
-		prod.PriceList().SetPrice(currency, money)
-	}
     
     // 4. 儲存 (Save 會儲存整個 Product)
     return h.productRepo.Save(ctx, prod)

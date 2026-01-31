@@ -48,7 +48,7 @@ func (r *PostgresProductRepository) insert(ctx context.Context, p *product.Produ
     }
 
     // 2. 插入價格清單
-    for currency, money := range p.PriceList().GetAllPrices() {
+    for currency, money := range p.Prices().GetAllPrices() {
         _, err = tx.ExecContext(ctx, `
             INSERT INTO product_prices (product_id, currency, amount)
             VALUES ($1, $2, $3)
@@ -91,7 +91,7 @@ func (r *PostgresProductRepository) update(ctx context.Context, p *product.Produ
         return err
     }
     
-    for currency, money := range p.PriceList().GetAllPrices() {
+    for currency, money := range p.Prices().GetAllPrices() {
         _, err = tx.ExecContext(ctx, `
             INSERT INTO product_prices (product_id, currency, amount)
             VALUES ($1, $2, $3)

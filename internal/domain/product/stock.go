@@ -11,7 +11,7 @@ type Stock struct {
 	reserved  int32
 }
 
-func Initial(available int32) (Stock, error) {
+func NewStock(available int32) (Stock, error) {
 	if available < 0 {
 		return Stock{}, errors.New("stock cannot be negative")
 	}

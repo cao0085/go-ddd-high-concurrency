@@ -39,12 +39,12 @@ func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductInfo
         prices[currency] = money
     }
     
-    priceList, err := domain.NewPriceList(prices)
+    multiCurrencyPrice, err := domain.NewMultiCurrencyPrice(prices)
     if err != nil {
         return err
     }
-    
-    prod, err := domain.NewProduct(cmd.Name, stock, priceList)
+
+    prod, err := domain.NewProduct(cmd.Name, stock, multiCurrencyPrice)
     if err != nil {
         return err
     }

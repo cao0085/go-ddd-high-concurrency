@@ -7,10 +7,8 @@ import (
 
 	"flash-sale-order-system/internal/Infrastructure/idgen"
 	"flash-sale-order-system/internal/Infrastructure/persistence/postgres"
-	persistence "flash-sale-order-system/internal/Infrastructure/persistence/repository"
-	productapp "flash-sale-order-system/internal/application/product"
 	httpserver "flash-sale-order-system/internal/interfaces/http"
-	"flash-sale-order-system/internal/interfaces/http/handler"
+	"flash-sale-order-system/internal/provider"
 )
 
 func main() {
@@ -34,21 +32,16 @@ func main() {
 		log.Fatalf("failed to create id generator: %v", err)
 	}
 
-	// 3. Repositories
-	productRepo := persistence.NewPostgresProductRepository(db)
-	pricingRepo := persistence.NewPostgresProductPricingRepository(db)
+	// 3. HTTP Handlers (via provider)
+	handlers := &httpserver.Handlers{
+		Product: provider.NewProductHandler(db, idGen),
+	}
 
-	// 4. Application Handlers
-	createProductHandler := productapp.NewCreateProductHandler(db, idGen, productRepo, pricingRepo)
-
-	// 5. HTTP Handlers
-	productHandler := handler.NewProductHandler(createProductHandler)
-
-	// 6. Router
-	router := httpserver.NewRouter(productHandler)
+	// 4. Router
+	router := httpserver.NewRouter(handlers)
 	engine := router.Setup()
 
-	// 7. Start Server
+	// 5. Start Server
 	port := getEnv("APP_PORT", "8080")
 	log.Printf("Starting server on port %s...", port)
 	if err := engine.Run(":" + port); err != nil {

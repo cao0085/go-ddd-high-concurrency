@@ -1,9 +1,9 @@
 package http
 
 import (
-	"github.com/gin-gonic/gin"
-
 	"flash-sale-order-system/internal/interfaces/http/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Router struct {

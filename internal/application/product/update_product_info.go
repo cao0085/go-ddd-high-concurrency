@@ -29,21 +29,21 @@ func NewUpdateProductInfoHandler(
 	}
 }
 
-func (h *UpdateProductInfoHandler) Handle(ctx context.Context, cmd UpdateProductInfoCommand) (int64, error) {
+func (h *UpdateProductInfoHandler) Handle(ctx context.Context, cmd UpdateProductInfoCommand) error {
 
 	product, err := h.productRepo.FindByID(ctx, cmd.Id)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if err := product.UpdateInfo(cmd.Name, cmd.Description, cmd.Status); err != nil {
-		return 0, err
+		return err
 	}
 
 	if err := h.productRepo.UpdateInfo(ctx, product); err != nil {
-		return 0, err
+		return err
 	}
 
-	return product.ID(), nil
+	return nil
 
 }

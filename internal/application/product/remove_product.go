@@ -26,21 +26,20 @@ func NewRemoveProductHandler(
 	}
 }
 
-func (h *RemoveProductHandler) Handle(ctx context.Context, cmd RemoveProductCommand) (int64, error) {
+func (h *RemoveProductHandler) Handle(ctx context.Context, cmd RemoveProductCommand) error {
 
 	product, err := h.productRepo.FindByID(ctx, cmd.Id)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if err := product.CanDelete(); err != nil {
-		return 0, err
+		return err
 	}
 
 	if err := h.productRepo.Delete(ctx, product.ID()); err != nil {
-		return 0, err
+		return err
 	}
 
-	return product.ID(), nil
-
+	return nil
 }

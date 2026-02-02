@@ -17,7 +17,7 @@ type ProductRepository interface {
 }
 
 type ProductPricingRepository interface {
-	// FindByProductID(ctx context.Context, productID int64) (*ProductPricing, error)
-	Save(ctx context.Context, pricing *ProductPricing) error
+	FindByProductID(ctx context.Context, productID int64) (*ProductPricing, error)
+	Save(ctx context.Context, productPricing *ProductPricing) error
 	// Delete(ctx context.Context, productID int64) error
 }

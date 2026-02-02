@@ -20,6 +20,16 @@ func NewMultiCurrencyPrice(prices map[Currency]Money) (MultiCurrencyPrice, error
 	return MultiCurrencyPrice{prices: pricesCopy}, nil
 }
 
+func NewSinglePrice(amount float64, currency Currency) (MultiCurrencyPrice, error) {
+	money, err := NewMoney(amount, currency)
+	if err != nil {
+		return MultiCurrencyPrice{}, err
+	}
+	return MultiCurrencyPrice{
+		prices: map[Currency]Money{currency: money},
+	}, nil
+}
+
 func (p MultiCurrencyPrice) GetPrice(currency Currency) (Money, error) {
 	price, exists := p.prices[currency]
 	if !exists {

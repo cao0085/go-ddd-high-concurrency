@@ -1,7 +1,7 @@
 -- Flash Sale System Database Initialization
 -- PostgreSQL 17.2
 
--- ============================================
+-- ============================================\dt
 -- Product Domain Tables
 -- ============================================
 
@@ -82,8 +82,9 @@ CREATE INDEX idx_products_available_stock ON products(available_stock) WHERE ava
 
 -- Product pricing indexes
 CREATE INDEX idx_product_pricing_product_valid ON product_pricing(product_id, valid_from, valid_until);
-CREATE INDEX idx_product_pricing_current ON product_pricing(product_id, currency) 
-    WHERE valid_from <= CURRENT_TIMESTAMP AND (valid_until IS NULL OR valid_until >= CURRENT_TIMESTAMP);
+-- Note: Cannot use CURRENT_TIMESTAMP in partial index (not IMMUTABLE)
+-- Query will filter by time at runtime instead
+CREATE INDEX idx_product_pricing_currency ON product_pricing(product_id, currency);
 
 -- Order indexes
 CREATE INDEX idx_orders_user_id ON orders(user_id);

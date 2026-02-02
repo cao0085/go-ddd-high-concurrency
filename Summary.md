@@ -34,6 +34,29 @@ postgres=# \l
 \d tableName
 ```
 
+## curl
+
+``` bash
+go run cmd/api/main.go
+curl http://localhost:8080/health
+```
+
+```bash
+curl -X POST http://localhost:8080/api/v1/product \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Product",
+    "description": "A test product",
+    "sku": "TEST-001",
+    "quantity": 50,
+    "prices": {
+      "USD": 99.99,
+      "TWD": 3000,
+      "JPY": 15000
+    },
+    "price_from": "2026-01-01T00:00:00Z"
+  }'
+```
 
 
 <!-- 

@@ -84,6 +84,33 @@ func (p *Product) CanDelete() error {
 	return nil
 }
 
+// ReconstructProduct rebuilds a Product from persistence (used by repository)
+func ReconstructProduct(
+	id int64,
+	sku string,
+	name string,
+	description string,
+	status int8,
+	stockAvailable int32,
+	stockReserved int32,
+	createdAt time.Time,
+	updatedAt time.Time,
+) *Product {
+	return &Product{
+		id:          id,
+		sku:         sku,
+		name:        name,
+		description: description,
+		status:      status,
+		stock: Stock{
+			available: stockAvailable,
+			reserved:  stockReserved,
+		},
+		createdAt: createdAt,
+		updatedAt: updatedAt,
+	}
+}
+
 // Getters
 func (p *Product) ID() int64            { return p.id }
 func (p *Product) SKU() string          { return p.sku }

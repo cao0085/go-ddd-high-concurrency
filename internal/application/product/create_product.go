@@ -16,7 +16,7 @@ type CreateProductCommand struct {
 	Description string
 	SKU         string
 	Quantity    int32
-	Prices      map[shareddomain.Currency]shareddomain.Money
+	Prices      map[string]float64
 	PriceFrom   time.Time
 	PriceUntil  *time.Time
 }
@@ -43,10 +43,22 @@ func NewCreateProductHandler(
 }
 
 func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductCommand) (int64, error) {
-	// 1. snowflake id generator
+
+	// 1. Convert prices map
+	prices := make(map[shareddomain.Currency]shareddomain.Money)
+	for currencyStr, amount := range cmd.Prices {
+		currency := shareddomain.Currency(currencyStr)
+		money, err := shareddomain.NewMoney(amount, currency)
+		if err != nil {
+			return 0, err
+		}
+		prices[currency] = money
+	}
+
+	// 2. Generate Product ID
 	productID := h.idGenerator.Generate()
 
-	// 2. Product Aggregate
+	// 3. Product Aggregate
 	product, err := domain.NewProduct(
 		productID,
 		cmd.Name,
@@ -58,19 +70,19 @@ func (h *CreateProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 		return 0, err
 	}
 
-	// 3. ProductPricing Aggregate
+	// 4. ProductPricing Aggregate
 	pricing := domain.NewProductPricing(productID)
 
-	prices, err := shareddomain.NewMultiCurrencyPrice(cmd.Prices)
+	MultiCurrencyPrice, err := shareddomain.NewMultiCurrencyPrice(prices)
 	if err != nil {
 		return 0, err
 	}
 
-	if err := pricing.AddPeriod(prices, cmd.PriceFrom, cmd.PriceUntil); err != nil {
+	if err := pricing.AddPeriod(MultiCurrencyPrice, cmd.PriceFrom, cmd.PriceUntil); err != nil {
 		return 0, err
 	}
 
-	// 4. Transactional Save
+	// 5. Transactional Save
 	err = tx.WithTx(ctx, h.db, func(txCtx context.Context) error {
 		if err := h.productRepo.Insert(txCtx, product); err != nil {
 			return err

@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	productapp "flash-sale-order-system/internal/application/product"
-	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
 
 type Handler struct {
@@ -36,23 +35,23 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	prices := make(map[shareddomain.Currency]shareddomain.Money)
-	for currencyStr, amount := range req.Prices {
-		currency := shareddomain.Currency(currencyStr)
-		money, err := shareddomain.NewMoney(amount, currency)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		prices[currency] = money
-	}
+	// prices := make(map[shareddomain.Currency]shareddomain.Money)
+	// for currencyStr, amount := range req.Prices {
+	// 	currency := shareddomain.Currency(currencyStr)
+	// 	money, err := shareddomain.NewMoney(amount, currency)
+	// 	if err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+	// 	prices[currency] = money
+	// }
 
 	cmd := productapp.CreateProductCommand{
 		Name:        req.Name,
 		Description: req.Description,
 		SKU:         req.SKU,
 		Quantity:    req.Quantity,
-		Prices:      prices,
+		Prices:      req.Prices,
 		PriceFrom:   req.PriceFrom,
 		PriceUntil:  req.PriceUntil,
 	}

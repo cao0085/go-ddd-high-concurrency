@@ -14,6 +14,9 @@ func NewProductHandler(db *sql.DB, idGen *idgen.IDGenerator) *httpProduct.Handle
 	pricingRepo := persistence.NewPostgresProductPricingRepository(db)
 
 	createHandler := productapp.NewCreateProductHandler(db, idGen, productRepo, pricingRepo)
+	updateInfoHandler := productapp.NewUpdateProductInfoHandler(db, productRepo)
+	getHandler := productapp.NewGetProductHandler(db, productRepo)
+	removeHandler := productapp.NewRemoveProductHandler(db, productRepo)
 
-	return httpProduct.NewHandler(createHandler)
+	return httpProduct.NewHandler(createHandler, updateInfoHandler, removeHandler, getHandler)
 }

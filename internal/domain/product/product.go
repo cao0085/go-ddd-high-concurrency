@@ -41,12 +41,13 @@ func NewProduct(id int64, name string, description string, sku string, quantity 
 	}, nil
 }
 
-func (p *Product) UpdateInfo(name string, description string) error {
+func (p *Product) UpdateInfo(name string, description string, status int8) error {
 	if name == "" {
 		return ErrEmptyProductName
 	}
 
 	p.name = name
+	p.status = status
 	p.description = description
 	p.updatedAt = time.Now()
 

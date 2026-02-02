@@ -1,8 +1,7 @@
-package handler
+package product
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,38 +9,33 @@ import (
 	shareddomain "flash-sale-order-system/internal/shared/domain"
 )
 
-type ProductHandler struct {
-	createProductHandler *productapp.CreateProductHandler
+type Handler struct {
+	createHandler *productapp.CreateProductHandler
 }
 
-func NewProductHandler(createProductHandler *productapp.CreateProductHandler) *ProductHandler {
-	return &ProductHandler{
-		createProductHandler: createProductHandler,
+func NewHandler(createHandler *productapp.CreateProductHandler) *Handler {
+	return &Handler{
+		createHandler: createHandler,
 	}
 }
 
-type CreateProductRequest struct {
-	Name        string             `json:"name" binding:"required"`
-	Description string             `json:"description"`
-	SKU         string             `json:"sku" binding:"required"`
-	Quantity    int32              `json:"quantity" binding:"required,min=0"`
-	Prices      map[string]float64 `json:"prices" binding:"required"`
-	PriceFrom   time.Time          `json:"price_from" binding:"required"`
-	PriceUntil  *time.Time         `json:"price_until"`
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+	products := rg.Group("/product")
+	{
+		products.POST("", h.Create)
+		// products.GET("/:id", h.GetByID)
+		// products.PUT("/:id", h.Update)
+		// products.DELETE("/:id", h.Delete)
+	}
 }
 
-type CreateProductResponse struct {
-	ID int64 `json:"id"`
-}
-
-func (h *ProductHandler) CreateProduct(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	var req CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Convert prices map
 	prices := make(map[shareddomain.Currency]shareddomain.Money)
 	for currencyStr, amount := range req.Prices {
 		currency := shareddomain.Currency(currencyStr)
@@ -63,7 +57,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		PriceUntil:  req.PriceUntil,
 	}
 
-	productID, err := h.createProductHandler.Handle(c.Request.Context(), cmd)
+	productID, err := h.createHandler.Handle(c.Request.Context(), cmd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

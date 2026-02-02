@@ -3,34 +3,30 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 
-	"flash-sale-order-system/internal/interfaces/http/handler"
+	"flash-sale-order-system/internal/interfaces/http/middleware"
 )
 
 type Router struct {
-	productHandler *handler.ProductHandler
+	handlers *Handlers
 }
 
-func NewRouter(productHandler *handler.ProductHandler) *Router {
-	return &Router{
-		productHandler: productHandler,
-	}
+func NewRouter(handlers *Handlers) *Router {
+	return &Router{handlers: handlers}
 }
 
 func (r *Router) Setup() *gin.Engine {
-	engine := gin.Default()
+	engine := gin.New()
+	engine.Use(middleware.Recovery())
 
 	// Health check
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// API v1
+	// API v1 routes
 	v1 := engine.Group("/api/v1")
 	{
-		products := v1.Group("/products")
-		{
-			products.POST("", r.productHandler.CreateProduct)
-		}
+		r.handlers.Product.RegisterRoutes(v1)
 	}
 
 	return engine

@@ -1,53 +1,125 @@
 -- Flash Sale System Database Initialization
 -- PostgreSQL 17.2
 
--- Create tables for flash sale system
+-- ============================================
+-- Product Domain Tables
+-- ============================================
+
+-- Products table (Aggregate Root)
 CREATE TABLE IF NOT EXISTS products (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
+    sku VARCHAR(100) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    stock INT NOT NULL DEFAULT 0,
-    price DECIMAL(10, 2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT stock_non_negative CHECK (stock >= 0)
+    description TEXT,
+    status SMALLINT NOT NULL DEFAULT 9 CHECK (status IN (1, 9)),
+    available_stock INT NOT NULL DEFAULT 0 CHECK (available_stock >= 0),
+    reserved_stock INT NOT NULL DEFAULT 0 CHECK (reserved_stock >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+COMMENT ON TABLE products IS 'Product aggregate root';
+COMMENT ON COLUMN products.status IS '1=active, 9=inactive';
+COMMENT ON COLUMN products.available_stock IS 'Available stock for purchase';
+COMMENT ON COLUMN products.reserved_stock IS 'Reserved stock for pending orders';
+
+-- Product pricing table (Aggregate Root)
+CREATE TABLE IF NOT EXISTS product_pricing (
+    id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    currency VARCHAR(3) NOT NULL CHECK (currency IN ('USD', 'TWD', 'JPY')),
+    amount DECIMAL(19, 4) NOT NULL CHECK (amount >= 0),
+    valid_from TIMESTAMP NOT NULL,
+    valid_until TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    CONSTRAINT uk_product_currency_period UNIQUE (product_id, currency, valid_from),
+    CONSTRAINT valid_period CHECK (valid_until IS NULL OR valid_until > valid_from)
+);
+
+COMMENT ON TABLE product_pricing IS 'Product pricing with multi-currency and time-based periods';
+COMMENT ON COLUMN product_pricing.valid_until IS 'NULL means valid indefinitely';
+
+-- ============================================
+-- Order Domain Tables
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS orders (
-    id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL,
-    product_id INT NOT NULL,
-    quantity INT NOT NULL DEFAULT 1,
-    total_price DECIMAL(10, 2) NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    total_price DECIMAL(19, 4) NOT NULL,
     status VARCHAR(50) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+-- ============================================
+-- Payment Domain Tables
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS payments (
-    id SERIAL PRIMARY KEY,
-    order_id INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    amount DECIMAL(19, 4) NOT NULL,
     status VARCHAR(50) DEFAULT 'pending',
     payment_method VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
--- Create indexes for performance
-CREATE INDEX idx_products_stock ON products(stock) WHERE stock > 0;
+-- ============================================
+-- Indexes for Performance
+-- ============================================
+
+-- Product indexes
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_products_status ON products(status);
+CREATE INDEX idx_products_available_stock ON products(available_stock) WHERE available_stock > 0;
+
+-- Product pricing indexes
+CREATE INDEX idx_product_pricing_product_valid ON product_pricing(product_id, valid_from, valid_until);
+CREATE INDEX idx_product_pricing_current ON product_pricing(product_id, currency) 
+    WHERE valid_from <= CURRENT_TIMESTAMP AND (valid_until IS NULL OR valid_until >= CURRENT_TIMESTAMP);
+
+-- Order indexes
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_product_id ON orders(product_id);
 CREATE INDEX idx_orders_status ON orders(status);
+
+-- Payment indexes
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_status ON payments(status);
 
--- Insert sample flash sale product
-INSERT INTO products (name, stock, price) VALUES
-    ('Flash Sale iPhone 15', 100, 999.99),
-    ('Flash Sale MacBook Pro', 50, 2499.99),
-    ('Flash Sale AirPods Pro', 200, 249.99);
+-- ============================================
+-- Sample Data
+-- ============================================
+
+-- Insert sample products
+INSERT INTO products (sku, name, description, status, available_stock, reserved_stock) VALUES
+    ('IPHONE-15-PRO', 'Flash Sale iPhone 15 Pro', 'Latest iPhone with A17 Pro chip', 1, 100, 0),
+    ('MACBOOK-PRO-16', 'Flash Sale MacBook Pro 16"', 'M3 Max MacBook Pro', 1, 50, 0),
+    ('AIRPODS-PRO-2', 'Flash Sale AirPods Pro 2', 'Active Noise Cancellation', 1, 200, 0);
+
+-- Insert sample pricing (multi-currency)
+INSERT INTO product_pricing (product_id, currency, amount, valid_from, valid_until) VALUES
+    -- iPhone 15 Pro pricing
+    (1, 'USD', 999.99, '2026-01-01 00:00:00', NULL),
+    (1, 'TWD', 31000, '2026-01-01 00:00:00', NULL),
+    (1, 'JPY', 145000, '2026-01-01 00:00:00', NULL),
+    
+    -- MacBook Pro pricing
+    (2, 'USD', 2499.99, '2026-01-01 00:00:00', NULL),
+    (2, 'TWD', 77000, '2026-01-01 00:00:00', NULL),
+    (2, 'JPY', 363000, '2026-01-01 00:00:00', NULL),
+    
+    -- AirPods Pro pricing
+    (3, 'USD', 249.99, '2026-01-01 00:00:00', NULL),
+    (3, 'TWD', 7700, '2026-01-01 00:00:00', NULL),
+    (3, 'JPY', 36300, '2026-01-01 00:00:00', NULL);
 
 -- Create function to update timestamp automatically
 CREATE OR REPLACE FUNCTION update_updated_at_column()

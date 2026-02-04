@@ -35,26 +35,3 @@ func (r *PostgresProductPricingRepository) Save(ctx context.Context, pricing *pr
 
 	return nil
 }
-
-func (r *PostgresProductPricingRepository) FindByProductID(ctx context.Context, productID int64) (*product.ProductPricing, error) {
-	conn := tx.GetConn(ctx, r.db)
-
-	rows, err := conn.QueryContext(ctx, `
-		SELECT currency, amount, valid_from, valid_until
-		FROM product_prices
-		WHERE product_id = $1
-		ORDER BY valid_from
-	`, productID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query product prices: %w", err)
-	}
-	defer rows.Close()
-
-	pricing := product.NewProductPricing(productID)
-
-	// TODO: Reconstruct ProductPricing from DB rows
-	// This requires additional factory/reconstitution methods in domain
-	_ = rows
-
-	return pricing, nil
-}

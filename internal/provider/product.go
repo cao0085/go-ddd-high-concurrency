@@ -7,7 +7,7 @@ import (
 
 	"flash-sale-order-system/internal/Infrastructure/idgen"
 	infraquery "flash-sale-order-system/internal/Infrastructure/persistence/query"
-	persistence "flash-sale-order-system/internal/Infrastructure/persistence/repository"
+	infrarepo "flash-sale-order-system/internal/Infrastructure/persistence/repository"
 	"flash-sale-order-system/internal/application/product/command"
 	"flash-sale-order-system/internal/application/product/query"
 	httpProduct "flash-sale-order-system/internal/interfaces/http/product"
@@ -20,8 +20,8 @@ type ProductHandlers struct {
 
 func NewProductHandlers(db *sql.DB, idGen *idgen.IDGenerator) *ProductHandlers {
 	// Repositories (for Command side)
-	productRepo := persistence.NewPostgresProductRepository(db)
-	pricingRepo := persistence.NewPostgresProductPricingRepository(db)
+	productRepo := infrarepo.NewPostgresProductRepository(db)
+	pricingRepo := infrarepo.NewPostgresProductPricingRepository(db)
 
 	// Query Service (for Query side - no domain dependency)
 	productQueryService := infraquery.NewPostgresProductQuery(db)
@@ -32,7 +32,7 @@ func NewProductHandlers(db *sql.DB, idGen *idgen.IDGenerator) *ProductHandlers {
 	removeHandler := command.NewRemoveProductHandler(db, productRepo)
 
 	// Query Handlers
-	getHandler := query.NewGetProductHandler(productQueryService)
+	getHandler := query.NewProductQueryHandler(productQueryService)
 
 	return &ProductHandlers{
 		Command: httpProduct.NewCommandHandler(createHandler, updateInfoHandler, removeHandler),

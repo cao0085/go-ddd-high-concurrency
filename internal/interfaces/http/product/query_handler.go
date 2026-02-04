@@ -10,14 +10,14 @@ import (
 )
 
 type QueryHandler struct {
-	getHandler *query.GetProductHandler
+	queryHandler *query.ProductQueryHandler
 }
 
 func NewQueryHandler(
-	getHandler *query.GetProductHandler,
+	queryHandler *query.ProductQueryHandler,
 ) *QueryHandler {
 	return &QueryHandler{
-		getHandler: getHandler,
+		queryHandler: queryHandler,
 	}
 }
 
@@ -29,7 +29,7 @@ func (h *QueryHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	product, err := h.getHandler.Handle(c.Request.Context(), id)
+	product, err := h.queryHandler.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
 		return

@@ -33,8 +33,10 @@ func main() {
 	}
 
 	// 3. HTTP Handlers (via provider)
+	productHandlers := provider.NewProductHandlers(db, idGen)
 	handlers := &httpserver.Handlers{
-		Product: provider.NewProductHandler(db, idGen),
+		ProductCommand: productHandlers.Command,
+		ProductQuery:   productHandlers.Query,
 	}
 
 	// 4. Router

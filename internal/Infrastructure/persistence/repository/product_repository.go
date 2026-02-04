@@ -66,26 +66,15 @@ func (r *PostgresProductRepository) Delete(ctx context.Context, id int64) error 
 func (r *PostgresProductRepository) FindByID(ctx context.Context, id int64) (*product.Product, error) {
 	conn := tx.GetConn(ctx, r.db)
 
-	row := conn.QueryRowContext(ctx, `
+	_ = conn.QueryRowContext(ctx, `
 		SELECT id, name, description, sku, status, stock_available, stock_reserved, created_at, updated_at
 		FROM products WHERE id = $1
 	`, id)
 
 	var p product.Product
 
-	// err := row.Scan(&p.id,
-	// 	&p.name,
-	// 	&p.description,
-	// 	&p.sku,
-	// 	&p.status,
-	// 	&p.stock.available,
-	// 	&p.stock.reserved,
-	// 	p.createdAt,
-	// 	p.updatedAt)
-
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to find product by ID: %w", err)
-	// }
+	// TODO: Implement scan with domain reconstitution
+	// err := row.Scan(...)
 
 	return &p, nil
 }

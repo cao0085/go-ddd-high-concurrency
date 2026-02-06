@@ -3,20 +3,43 @@ package provider
 import (
 	"database/sql"
 
+	"github.com/gin-gonic/gin"
+
 	"flash-sale-order-system/internal/Infrastructure/idgen"
-	persistence "flash-sale-order-system/internal/Infrastructure/persistence/repository"
-	productapp "flash-sale-order-system/internal/application/product"
+	infraquery "flash-sale-order-system/internal/Infrastructure/persistence/query"
+	infrarepo "flash-sale-order-system/internal/Infrastructure/persistence/repository"
+	"flash-sale-order-system/internal/application/product/command"
+	"flash-sale-order-system/internal/application/product/query"
 	httpProduct "flash-sale-order-system/internal/interfaces/http/product"
 )
 
-func NewProductHandler(db *sql.DB, idGen *idgen.IDGenerator) *httpProduct.Handler {
-	productRepo := persistence.NewPostgresProductRepository(db)
-	pricingRepo := persistence.NewPostgresProductPricingRepository(db)
+type ProductHandlers struct {
+	Command *httpProduct.CommandHandler
+	Query   *httpProduct.QueryHandler
+}
 
-	createHandler := productapp.NewCreateProductHandler(db, idGen, productRepo, pricingRepo)
-	updateInfoHandler := productapp.NewUpdateProductInfoHandler(db, productRepo)
-	getHandler := productapp.NewGetProductHandler(db, productRepo)
-	removeHandler := productapp.NewRemoveProductHandler(db, productRepo)
+func NewProductHandlers(db *sql.DB, idGen *idgen.IDGenerator) *ProductHandlers {
+	// Repositories (for Command side)
+	productRepo := infrarepo.NewPostgresProductRepository(db)
+	pricingRepo := infrarepo.NewPostgresProductPricingRepository(db)
 
-	return httpProduct.NewHandler(createHandler, updateInfoHandler, removeHandler, getHandler)
+	// Query Service (for Query side - no domain dependency)
+	productQueryService := infraquery.NewPostgresProductQuery(db)
+
+	// Command Handlers
+	createHandler := command.NewCreateProductHandler(db, idGen, productRepo, pricingRepo)
+	updateInfoHandler := command.NewUpdateProductInfoHandler(db, productRepo)
+	removeHandler := command.NewRemoveProductHandler(db, productRepo)
+
+	// Query Handlers
+	getHandler := query.NewProductQueryHandler(productQueryService)
+
+	return &ProductHandlers{
+		Command: httpProduct.NewCommandHandler(createHandler, updateInfoHandler, removeHandler),
+		Query:   httpProduct.NewQueryHandler(getHandler),
+	}
+}
+
+func RegisterProductRoutes(rg *gin.RouterGroup, handlers *ProductHandlers) {
+	httpProduct.RegisterRoutes(rg, handlers.Command, handlers.Query)
 }

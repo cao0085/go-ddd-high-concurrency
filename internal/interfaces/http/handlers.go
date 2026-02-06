@@ -5,5 +5,6 @@ import (
 )
 
 type Handlers struct {
-	Product *product.Handler
+	ProductCommand *product.CommandHandler
+	ProductQuery   *product.QueryHandler
 }

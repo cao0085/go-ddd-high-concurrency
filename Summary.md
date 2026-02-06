@@ -16,6 +16,12 @@
 5. **grafana/grafana:11.4.0** - Monitoring dashboard
 6. **Go app** - Backend service (built from Dockerfile)
 
+## rebuild
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
 ## PostgreSQL
 
 ``` bash

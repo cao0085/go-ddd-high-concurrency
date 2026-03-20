@@ -41,6 +41,65 @@ A high-concurrency flash sale system built with Go, demonstrating solutions to c
 
 ## Architecture
 
+```md
+Client
+  │
+  │  POST /api/v1/orders
+  ▼
+┌─────────────────────────────────┐
+│   HTTP Handler (Gin)            │
+│   PlaceOrder()                  │
+│   • 驗證 JSON                   │
+│   • 回傳 202 Accepted ◄──────── │ ← 這裡就結束了，不等 DB
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│   Application Layer             │
+│   PlaceOrderHandler.Handle()    │
+└──────┬──────────────────────────┘
+       │
+       ├──① Reserve()──────────────────────────────────┐
+       │                                               ▼
+       │                               ┌───────────────────────────┐
+       │                               │  Redis (Lua Script 原子)   │
+       │                               │  stock:product:1:available │
+       │                               │  DECRBY 1                  │
+       │                               │  stock:product:1:reserved  │
+       │                               │  INCRBY 1                  │
+       │                               └───────────┬───────────────┘
+       │                                           │
+       │                              ✅ 成功 / ❌ 庫存不足
+       │
+       ├──② Publish()─────────────────────────────────┐
+       │   (扣庫存成功才執行)                          ▼
+       │                               ┌───────────────────────────┐
+       │                               │  RabbitMQ                  │
+       │                               │  Queue: "orders"           │
+       │                               │  Durable: true (持久化)    │
+       │                               └───────────┬───────────────┘
+       │                                           │
+       │             ┌─────────────────────────────┘
+       │             │  Consumer goroutine 監聽
+       │             ▼
+       │  ┌─────────────────────────────┐
+       │  │  SaveOrderHandler.Handle()  │
+       │  │  INSERT INTO orders         │
+       │  │  status = 'pending'         │
+       │  └─────────────┬───────────────┘
+       │                │
+       │                ▼
+       │  ┌─────────────────────────────┐
+       │  │  PostgreSQL                 │
+       │  │  Table: orders              │
+       │  │  ✅ 成功 → Ack (移出 queue)  │
+       │  │  ❌ 失敗 → Nack + requeue   │
+       │  └─────────────────────────────┘
+       │
+       └──③ Publish 失敗時 → CancelReservation()
+                          Redis 庫存滾回
+```
+
 ```
 User Request → Go API
               ↓

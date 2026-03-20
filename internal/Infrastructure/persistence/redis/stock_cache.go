@@ -74,6 +74,27 @@ func (s *StockCache) GetAvailable(ctx context.Context, productID int64) (int32, 
 	return int32(stock), nil
 }
 
+// GetStock reads both available and reserved stock from Redis in one pipeline.
+// Returns (0, 0, nil) if the keys do not exist (cache miss).
+func (s *StockCache) GetStock(ctx context.Context, productID int64) (available, reserved int32, err error) {
+	pipe := s.client.Pipeline()
+	availCmd := pipe.Get(ctx, s.availableKey(productID))
+	reservCmd := pipe.Get(ctx, s.reservedKey(productID))
+	_, _ = pipe.Exec(ctx) // ignore pipeline-level error; check per-cmd below
+
+	avail, aErr := availCmd.Int64()
+	if aErr != nil && aErr != redis.Nil {
+		return 0, 0, fmt.Errorf("failed to get available stock: %w", aErr)
+	}
+
+	res, rErr := reservCmd.Int64()
+	if rErr != nil && rErr != redis.Nil {
+		return 0, 0, fmt.Errorf("failed to get reserved stock: %w", rErr)
+	}
+
+	return int32(avail), int32(res), nil
+}
+
 // Reserve reserves stock atomically using Lua script
 // 返回 true 表示預扣成功，false 表示庫存不足
 func (s *StockCache) Reserve(ctx context.Context, productID int64, quantity int32) (bool, error) {

@@ -6,7 +6,7 @@ global:
     environment: 'development'
 
 scrape_configs:
-  # Go Application Metrics
+  # Go Application — runtime metrics (goroutines, memory, GC, etc.)
   - job_name: 'flashsale-app'
     static_configs:
       - targets: ['app:9100']
@@ -15,24 +15,17 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 10s
 
-  # PostgreSQL Metrics (requires postgres_exporter, optional)
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
-        labels:
-          service: 'database'
-
-  # Redis Metrics (requires redis_exporter, optional)
+  # Redis — via redis_exporter
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['redis-exporter:9121']
         labels:
           service: 'cache'
 
-  # Kafka Metrics
-  - job_name: 'kafka'
+  # RabbitMQ — built-in prometheus plugin (port 15692)
+  - job_name: 'rabbitmq'
     static_configs:
-      - targets: ['kafka:9092']
+      - targets: ['rabbitmq:15692']
         labels:
           service: 'message-queue'
 

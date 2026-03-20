@@ -18,7 +18,6 @@ func NewHandler(placeOrder *apporder.PlaceOrderHandler) *Handler {
 }
 
 type placeOrderRequest struct {
-	OrderID   string  `json:"order_id" binding:"required"`
 	UserID    string  `json:"user_id" binding:"required"`
 	ProductID int64   `json:"product_id" binding:"required"`
 	Quantity  int32   `json:"quantity" binding:"required,min=1"`
@@ -33,14 +32,14 @@ func (h *Handler) PlaceOrder(c *gin.Context) {
 	}
 
 	cmd := apporder.PlaceOrderCommand{
-		OrderID:   req.OrderID,
 		UserID:    req.UserID,
 		ProductID: req.ProductID,
 		Quantity:  req.Quantity,
 		Price:     req.Price,
 	}
 
-	if err := h.placeOrder.Handle(c.Request.Context(), cmd); err != nil {
+	orderID, err := h.placeOrder.Handle(c.Request.Context(), cmd)
+	if err != nil {
 		status := http.StatusInternalServerError
 		if err.Error() == fmt.Sprintf("insufficient stock for product %d", req.ProductID) {
 			status = http.StatusConflict
@@ -49,7 +48,7 @@ func (h *Handler) PlaceOrder(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{"order_id": req.OrderID, "status": "queued"})
+	c.JSON(http.StatusAccepted, gin.H{"order_id": orderID, "status": "queued"})
 }
 
 func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {

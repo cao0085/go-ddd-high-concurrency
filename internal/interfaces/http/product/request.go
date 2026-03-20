@@ -15,12 +15,7 @@ type CreateProductRequest struct {
 }
 
 type UpdateProductInfoRequest struct {
-	Id          int64  `json:"id" binding:"required,min=1"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	Status      int8   `json:"status" binding:"required"`
-}
-
-type RemoveProductRequest struct {
-	Id int64 `json:"id" binding:"required,min=1"`
 }

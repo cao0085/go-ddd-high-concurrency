@@ -7,6 +7,8 @@ type ProductRepository interface {
 	UpdateInfo(ctx context.Context, p *Product) error
 	Delete(ctx context.Context, id int64) error
 	FindByID(ctx context.Context, id int64) (*Product, error)
+	FindAll(ctx context.Context) ([]*Product, error)
+	UpdateStock(ctx context.Context, id int64, available, reserved int32) error
 }
 
 type ProductPricingRepository interface {

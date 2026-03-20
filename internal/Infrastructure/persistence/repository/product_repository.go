@@ -64,6 +64,61 @@ func (r *PostgresProductRepository) Delete(ctx context.Context, id int64) error 
 	return nil
 }
 
+func (r *PostgresProductRepository) FindAll(ctx context.Context) ([]*product.Product, error) {
+	conn := tx.GetConn(ctx, r.db)
+
+	rows, err := conn.QueryContext(ctx, `
+		SELECT id, sku, name, description, status, available_stock, reserved_stock, created_at, updated_at
+		FROM products ORDER BY id
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find all products: %w", err)
+	}
+	defer rows.Close()
+
+	var products []*product.Product
+	for rows.Next() {
+		var (
+			pID            int64
+			sku            string
+			name           string
+			description    sql.NullString
+			status         int8
+			stockAvailable int32
+			stockReserved  int32
+			createdAt      time.Time
+			updatedAt      time.Time
+		)
+		if err := rows.Scan(&pID, &sku, &name, &description, &status, &stockAvailable, &stockReserved, &createdAt, &updatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan product row: %w", err)
+		}
+		products = append(products, product.ReconstructProduct(
+			pID, sku, name, description.String, status,
+			stockAvailable, stockReserved, createdAt, updatedAt,
+		))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	return products, nil
+}
+
+func (r *PostgresProductRepository) UpdateStock(ctx context.Context, id int64, available, reserved int32) error {
+	conn := tx.GetConn(ctx, r.db)
+
+	_, err := conn.ExecContext(ctx, `
+		UPDATE products
+		SET available_stock = $1, reserved_stock = $2, updated_at = NOW()
+		WHERE id = $3
+	`, available, reserved, id)
+	if err != nil {
+		return fmt.Errorf("failed to update product stock: %w", err)
+	}
+
+	return nil
+}
+
 func (r *PostgresProductRepository) FindByID(ctx context.Context, id int64) (*product.Product, error) {
 	conn := tx.GetConn(ctx, r.db)
 

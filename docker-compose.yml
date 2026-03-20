@@ -103,6 +103,21 @@ services:
     depends_on:
       - prometheus
 
+  # Redis Exporter — exposes Redis metrics for Prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    platform: linux/arm64
+    container_name: flashsale-redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    networks:
+      - flashsale-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
   # Go Backend Application
   app:
     build:

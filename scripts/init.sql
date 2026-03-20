@@ -46,6 +46,7 @@ COMMENT ON COLUMN product_pricing.valid_until IS 'NULL means valid indefinitely'
 
 CREATE TABLE IF NOT EXISTS orders (
     id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT UNIQUE NOT NULL,
     user_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
     quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),

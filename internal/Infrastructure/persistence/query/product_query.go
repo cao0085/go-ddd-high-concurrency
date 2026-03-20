@@ -17,7 +17,7 @@ func NewPostgresProductQuery(db *sql.DB) appquery.ProductQueryService {
 
 func (q *PostgresProductQuery) GetByID(ctx context.Context, id int64) (*appquery.ProductDTO, error) {
 	row := q.db.QueryRowContext(ctx, `
-		SELECT id, name, description, sku, status, stock_available, stock_reserved, created_at, updated_at
+		SELECT id, name, description, sku, status, available_stock, reserved_stock, created_at, updated_at
 		FROM products WHERE id = $1
 	`, id)
 
@@ -44,7 +44,7 @@ func (q *PostgresProductQuery) GetWithCurrentPrice(ctx context.Context, id int64
 	row := q.db.QueryRowContext(ctx, `
 		SELECT
 			p.id, p.name, p.description, p.sku, p.status,
-			p.stock_available, p.stock_reserved, p.created_at, p.updated_at,
+			p.available_stock, p.reserved_stock, p.created_at, p.updated_at,
 			pp.amount, pp.currency
 		FROM products p
 		LEFT JOIN product_prices pp ON p.id = pp.product_id

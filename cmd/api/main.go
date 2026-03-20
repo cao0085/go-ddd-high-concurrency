@@ -5,14 +5,18 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"flash-sale-order-system/internal/Infrastructure/idgen"
 	"flash-sale-order-system/internal/Infrastructure/persistence/postgres"
 	redisinfra "flash-sale-order-system/internal/Infrastructure/persistence/redis"
+	infrarepo "flash-sale-order-system/internal/Infrastructure/persistence/repository"
 	apporder "flash-sale-order-system/internal/application/order"
+	appstock "flash-sale-order-system/internal/application/stock"
 	httpserver "flash-sale-order-system/internal/interfaces/http"
 	httporder "flash-sale-order-system/internal/interfaces/http/order"
 	"flash-sale-order-system/internal/provider"
+	"flash-sale-order-system/pkg/metrics"
 	"flash-sale-order-system/pkg/rabbitmq"
 )
 
@@ -50,19 +54,25 @@ func main() {
 
 	// 4. RabbitMQ
 	rmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-	rmqConn, rmqCh, err := rabbitmq.NewConnection(rmqURL)
+	rmqConn, producerCh, err := rabbitmq.NewConnection(rmqURL)
 	if err != nil {
 		log.Fatalf("failed to connect to rabbitmq: %v", err)
 	}
-	defer rmqCh.Close()
+	defer producerCh.Close()
 	defer rmqConn.Close()
 
+	consumerCh, err := rmqConn.Channel()
+	if err != nil {
+		log.Fatalf("failed to open consumer channel: %v", err)
+	}
+	defer consumerCh.Close()
+
 	// 5. Order Producer
-	producer := rabbitmq.NewOrderProducer(rmqCh)
+	producer := rabbitmq.NewOrderProducer(producerCh)
 
 	// 6. Order Consumer — saves to PostgreSQL in the background
-	saveOrderHandler := apporder.NewSaveOrderHandler(db)
-	consumer := rabbitmq.NewOrderConsumer(rmqCh)
+	saveOrderHandler := apporder.NewSaveOrderHandler(db, stockCache)
+	consumer := rabbitmq.NewOrderConsumer(consumerCh)
 	ctx := context.Background()
 	if err := consumer.Start(ctx, func(msg rabbitmq.OrderMessage) error {
 		return saveOrderHandler.Handle(ctx, msg)
@@ -70,9 +80,18 @@ func main() {
 		log.Fatalf("failed to start order consumer: %v", err)
 	}
 
-	// 7. HTTP Handlers (via provider)
+	// 7. Stock Service — warm-up Redis from DB, then reconcile periodically
+	productRepo := infrarepo.NewPostgresProductRepository(db)
+	stockService := appstock.NewStockService(productRepo, stockCache)
+
+	if err := stockService.WarmUp(ctx); err != nil {
+		log.Printf("stock warm-up warning: %v", err)
+	}
+	go stockService.StartReconcile(ctx, 5*time.Minute)
+
+	// 8. HTTP Handlers (via provider)
 	productHandlers := provider.NewProductHandlers(db, idGen)
-	placeOrderHandler := apporder.NewPlaceOrderHandler(stockCache, producer)
+	placeOrderHandler := apporder.NewPlaceOrderHandler(stockCache, producer, idGen)
 
 	handlers := &httpserver.Handlers{
 		ProductCommand: productHandlers.Command,
@@ -80,11 +99,14 @@ func main() {
 		Order:          httporder.NewHandler(placeOrderHandler),
 	}
 
-	// 8. Router
+	// 9. Router
 	router := httpserver.NewRouter(handlers)
 	engine := router.Setup()
 
-	// 9. Start Server
+	// 10. Metrics Server
+	metrics.Start(getEnv("METRICS_PORT", "9100"))
+
+	// 11. Start Server
 	port := getEnv("APP_PORT", "8080")
 	log.Printf("Starting server on port %s...", port)
 	if err := engine.Run(":" + port); err != nil {

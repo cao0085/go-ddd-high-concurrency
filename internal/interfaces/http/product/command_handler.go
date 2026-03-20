@@ -2,6 +2,7 @@ package product
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -53,6 +54,12 @@ func (h *CommandHandler) Create(c *gin.Context) {
 }
 
 func (h *CommandHandler) UpdateInfo(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
+		return
+	}
+
 	var req UpdateProductInfoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -60,14 +67,13 @@ func (h *CommandHandler) UpdateInfo(c *gin.Context) {
 	}
 
 	cmd := command.UpdateProductInfoCommand{
-		Id:          req.Id,
+		Id:          id,
 		Name:        req.Name,
 		Description: req.Description,
 		Status:      req.Status,
 	}
 
-	err := h.updateInfoHandler.Handle(c.Request.Context(), cmd)
-	if err != nil {
+	if err := h.updateInfoHandler.Handle(c.Request.Context(), cmd); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -76,14 +82,14 @@ func (h *CommandHandler) UpdateInfo(c *gin.Context) {
 }
 
 func (h *CommandHandler) Delete(c *gin.Context) {
-	var req RemoveProductRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
 		return
 	}
 
 	cmd := command.RemoveProductCommand{
-		Id: req.Id,
+		Id: id,
 	}
 
 	if err := h.removeHandler.Handle(c.Request.Context(), cmd); err != nil {

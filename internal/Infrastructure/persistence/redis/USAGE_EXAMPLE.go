@@ -201,7 +201,7 @@ func (s *OrderService) CreateOrderWithDedup(ctx context.Context, userID, product
    - 避免 race condition
 */
 
-func Path(path string) string {
+func Path(path string) []string {
 
 	var slices []string
 	var tempStr string
@@ -217,4 +217,5 @@ func Path(path string) string {
 		slices = append(slices, tempStr)
 	}
 
+	return slices
 }

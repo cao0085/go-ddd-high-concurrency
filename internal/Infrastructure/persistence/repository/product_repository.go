@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	tx "flash-sale-order-system/internal/Infrastructure/persistence/tx"
 	product "flash-sale-order-system/internal/domain/product"
@@ -67,25 +68,25 @@ func (r *PostgresProductRepository) FindByID(ctx context.Context, id int64) (*pr
 	conn := tx.GetConn(ctx, r.db)
 
 	row := conn.QueryRowContext(ctx, `
-		SELECT id, name, description, sku, status, stock_available, stock_reserved, created_at, updated_at
+		SELECT id, sku, name, description, status, available_stock, reserved_stock, created_at, updated_at
 		FROM products WHERE id = $1
 	`, id)
 
-	var p product.Product
+	var (
+		pID            int64
+		sku            string
+		name           string
+		description    sql.NullString
+		status         int8
+		stockAvailable int32
+		stockReserved  int32
+		createdAt      time.Time
+		updatedAt      time.Time
+	)
 
-	// err := row.Scan(&p.id,
-	// 	&p.name,
-	// 	&p.description,
-	// 	&p.sku,
-	// 	&p.status,
-	// 	&p.stock.available,
-	// 	&p.stock.reserved,
-	// 	p.createdAt,
-	// 	p.updatedAt)
-
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to find product by ID: %w", err)
-	// }
+	if err := row.Scan(&pID, &sku, &name, &description, &status, &stockAvailable, &stockReserved, &createdAt, &updatedAt); err != nil {
+		return nil, fmt.Errorf("failed to find product by ID: %w", err)
+	}
 
 	return product.ReconstructProduct(
 		pID,

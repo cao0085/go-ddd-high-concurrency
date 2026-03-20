@@ -2,6 +2,7 @@ package http
 
 import (
 	"flash-sale-order-system/internal/interfaces/http/middleware"
+	"flash-sale-order-system/internal/interfaces/http/order"
 	"flash-sale-order-system/internal/interfaces/http/product"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ func (r *Router) Setup() *gin.Engine {
 	v1 := engine.Group("/api/v1")
 	{
 		product.RegisterRoutes(v1, r.handlers.ProductCommand, r.handlers.ProductQuery)
+		order.RegisterRoutes(v1, r.handlers.Order)
 	}
 
 	return engine

@@ -6,26 +6,29 @@ A high-concurrency flash sale system built with Go, demonstrating solutions to c
 
 ### ✅ Completed
 - **DDD Domain Layer** - Product aggregate, value objects (Money, Stock, Currency), domain errors
-- **DDD Application Layer** - CreateProduct use case with command pattern
+- **DDD Application Layer** - Product use cases (create/update/delete) + Order placement use case
 - **DDD Infrastructure Layer** - PostgreSQL repositories, transaction manager, Snowflake ID generator
 - **DDD Interface Layer** - Gin HTTP router, handlers with request/response DTOs
-- **Docker Infrastructure** - PostgreSQL, Redis, Kafka, Prometheus, Grafana
+- **Docker Infrastructure** - PostgreSQL, Redis, RabbitMQ, Prometheus, Grafana
+- **Redis Stock Cache** - Atomic stock reservation via Lua script (available / reserved keys)
+- **RabbitMQ Integration** - Order producer + consumer, durable `orders` queue
+- **Order Flow** - HTTP → Redis decrement → RabbitMQ publish → Consumer → PostgreSQL write
 
 ### 🚧 Next Steps
-- [ ] Complete SQL schema and migrations
-- [ ] Implement full domain logic (Order, User aggregates)
-- [ ] Redis stock caching and atomic decrement
-- [ ] Kafka order message producer/consumer
+- [ ] Implement full domain logic (User aggregate, Payment aggregate)
+- [ ] Redis warm-up on startup (sync stock from PostgreSQL to Redis)
 - [ ] Distributed lock for overselling prevention
+- [ ] Idempotent order processing (dedup by order_id)
+- [ ] Periodic reconciliation: Redis ↔ PostgreSQL
 
 ---
 
 ## Core Challenges Addressed
 
 1. **Overselling Prevention** - 100 items, 1000 buyers - guaranteed no overselling
-2. **High Concurrency Writes** - Multiple goroutines safely decrementing stock
-3. **Message Queue** - Kafka for request/processing decoupling and backpressure control
-4. **Data Consistency** - Order, payment, and inventory consistency
+2. **High Concurrency Writes** - Atomic Lua script in Redis for race-free stock decrement
+3. **Message Queue** - RabbitMQ for request/processing decoupling and backpressure control
+4. **Data Consistency** - Order and inventory consistency via queue + consumer
 5. **Monitoring** - Real-time metrics for goroutines, DB connections, throughput
 
 ## Tech Stack
@@ -33,7 +36,7 @@ A high-concurrency flash sale system built with Go, demonstrating solutions to c
 - **Backend**: Go 1.24.0
 - **Database**: PostgreSQL 17.2
 - **Cache**: Redis 7.4.1
-- **Message Queue**: Kafka 3.8.1 (KRaft mode)
+- **Message Queue**: RabbitMQ 3.13 (with Management UI)
 - **Monitoring**: Prometheus 3.1.0 + Grafana 11.4.0
 
 ## Architecture
@@ -41,13 +44,11 @@ A high-concurrency flash sale system built with Go, demonstrating solutions to c
 ```
 User Request → Go API
               ↓
-         Redis (atomic stock decrement)
+         Redis (atomic stock decrement via Lua)
               ↓
-         Kafka (order message)
+         RabbitMQ (orders queue, durable)
               ↓
-         Consumer → PostgreSQL (order persistence)
-              ↓
-         Periodic sync: Redis → PostgreSQL
+         Consumer goroutine → PostgreSQL (order persistence)
 ```
 
 ## Quick Start
@@ -56,7 +57,6 @@ User Request → Go API
 
 - Docker & Docker Compose
 - Go 1.23+ (for local development)
-- Make (optional, for convenience commands)
 
 ### 1. Clone and Setup
 
@@ -68,33 +68,68 @@ cp .env.example .env
 ### 2. Start All Services
 
 ```bash
-make up
+docker compose up --build
 ```
 
-Or without Make:
+### 3. Initialize Redis Stock (required before placing orders)
+
 ```bash
-docker-compose up -d
+docker exec flashsale-redis redis-cli SET "stock:product:1:available" 100
+docker exec flashsale-redis redis-cli SET "stock:product:1:reserved" 0
 ```
 
-### 3. Access Services
+### 4. Access Services
 
 - **API**: http://localhost:8080
 - **Grafana**: http://localhost:3000 (admin/admin123)
 - **Prometheus**: http://localhost:9090
+- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 - **PostgreSQL**: localhost:5432 (flashsale/flashsale123)
 - **Redis**: localhost:6379
-- **Kafka**: localhost:9092
 
-## Available Commands
+## API Endpoints
 
+### Health Check
 ```bash
-make help        # Show all available commands
-make up          # Start all services
-make down        # Stop all services
-make logs        # Show logs
-make db-shell    # Connect to PostgreSQL
-make redis-cli   # Connect to Redis
-make clean       # Remove all containers and volumes
+curl http://localhost:8080/health
+```
+
+### Product
+```bash
+# Create product
+curl -X POST http://localhost:8080/api/v1/product \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Product",
+    "description": "A test product",
+    "sku": "TEST-001",
+    "quantity": 50,
+    "prices": {"USD": 99.99, "TWD": 3000, "JPY": 15000},
+    "price_from": "2026-01-01T00:00:00Z"
+  }'
+
+# Get product
+curl http://localhost:8080/api/v1/product/1
+```
+
+### Order (Flash Sale)
+```bash
+curl -X POST http://localhost:8080/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "ORD-001",
+    "user_id": "1",
+    "product_id": 1,
+    "quantity": 1,
+    "price": 999.99
+  }'
+```
+
+Response: `{"order_id":"ORD-001","status":"queued"}`
+
+### Verify Order in DB
+```bash
+docker exec flashsale-postgres psql -U flashsale -d flashsale_db -c "SELECT * FROM orders;"
 ```
 
 ## Project Structure (DDD)
@@ -106,86 +141,33 @@ make clean       # Remove all containers and volumes
 ├── internal/
 │   ├── domain/                       # Domain Layer
 │   │   └── product/                  # Product aggregate
-│   │       ├── product.go            # Aggregate root
-│   │       ├── product_pricing.go    # Pricing aggregate
-│   │       ├── stock.go              # Value object
-│   │       ├── repository.go         # Repository interfaces
-│   │       └── errors.go             # Domain errors
 │   ├── application/                  # Application Layer
-│   │   └── product/                  # Use cases
-│   │       └── create_product.go     # Command handler
+│   │   ├── product/                  # Product use cases
+│   │   └── order/                    # Order use cases
+│   │       ├── place_order.go        # Redis reserve + RabbitMQ publish
+│   │       └── save_order.go         # Consumer: persist to PostgreSQL
 │   ├── Infrastructure/               # Infrastructure Layer
 │   │   ├── persistence/
 │   │   │   ├── postgres/             # Database connection
+│   │   │   ├── redis/                # Stock cache + distributed lock
 │   │   │   ├── repository/           # Repository implementations
 │   │   │   └── tx/                   # Transaction manager
 │   │   └── idgen/                    # Snowflake ID generator
 │   ├── interfaces/                   # Interface Layer
 │   │   └── http/
-│   │       ├── handler/              # HTTP handlers
+│   │       ├── order/                # Order HTTP handler
+│   │       ├── product/              # Product HTTP handler
 │   │       ├── middleware/           # Middleware
 │   │       └── router.go             # Gin router
 │   └── shared/                       # Shared kernel
 │       └── domain/                   # Shared value objects
-│           ├── money.go
-│           ├── multi_currency_price.go
-│           └── errors.go
+├── pkg/
+│   └── rabbitmq/                     # RabbitMQ connection, producer, consumer
 ├── scripts/                          # Database init scripts
 ├── monitoring/                       # Prometheus & Grafana configs
 ├── docker-compose.yml
-├── Dockerfile
-└── Makefile
+└── Dockerfile
 ```
-
-## Development
-
-### Initialize Go Modules
-
-```bash
-make go-init
-```
-
-### Run in Development Mode
-
-```bash
-make dev
-```
-
-### Run Tests
-
-```bash
-make test
-```
-
-## Monitoring
-
-Access Grafana at http://localhost:3000 to view:
-- Request throughput
-- Goroutine count
-- Database connection pool
-- Redis operations
-- Kafka message rate
-- Stock levels
-
-## Key Implementation Details
-
-### Preventing Overselling
-
-1. **Redis Atomic Operations**: Use `DECR` for instant stock checks
-2. **PostgreSQL Row Locks**: `SELECT FOR UPDATE` with transactions
-3. **Optimistic Locking**: Version-based concurrency control
-
-### High Concurrency
-
-- Goroutine pool with max workers
-- Connection pooling (PostgreSQL, Redis)
-- Circuit breaker pattern for fault tolerance
-
-### Data Consistency
-
-- Two-phase commit for order + payment
-- Idempotent message processing
-- Periodic reconciliation (Redis ↔ PostgreSQL)
 
 ## License
 

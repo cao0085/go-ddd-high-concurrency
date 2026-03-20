@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"strconv"
 
 	"flash-sale-order-system/internal/Infrastructure/idgen"
 	"flash-sale-order-system/internal/Infrastructure/persistence/postgres"
+	redisinfra "flash-sale-order-system/internal/Infrastructure/persistence/redis"
+	apporder "flash-sale-order-system/internal/application/order"
 	httpserver "flash-sale-order-system/internal/interfaces/http"
+	httporder "flash-sale-order-system/internal/interfaces/http/order"
 	"flash-sale-order-system/internal/provider"
+	"flash-sale-order-system/pkg/rabbitmq"
 )
 
 func main() {
@@ -32,18 +37,54 @@ func main() {
 		log.Fatalf("failed to create id generator: %v", err)
 	}
 
-	// 3. HTTP Handlers (via provider)
+	// 3. Redis
+	redisClient, err := redisinfra.NewClient(redisinfra.Config{
+		Host: getEnv("REDIS_HOST", "localhost"),
+		Port: getEnvInt("REDIS_PORT", 6379),
+	})
+	if err != nil {
+		log.Fatalf("failed to connect to redis: %v", err)
+	}
+	defer redisinfra.CloseClient(redisClient)
+	stockCache := redisinfra.NewStockCache(redisClient)
+
+	// 4. RabbitMQ
+	rmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	rmqConn, rmqCh, err := rabbitmq.NewConnection(rmqURL)
+	if err != nil {
+		log.Fatalf("failed to connect to rabbitmq: %v", err)
+	}
+	defer rmqCh.Close()
+	defer rmqConn.Close()
+
+	// 5. Order Producer
+	producer := rabbitmq.NewOrderProducer(rmqCh)
+
+	// 6. Order Consumer — saves to PostgreSQL in the background
+	saveOrderHandler := apporder.NewSaveOrderHandler(db)
+	consumer := rabbitmq.NewOrderConsumer(rmqCh)
+	ctx := context.Background()
+	if err := consumer.Start(ctx, func(msg rabbitmq.OrderMessage) error {
+		return saveOrderHandler.Handle(ctx, msg)
+	}); err != nil {
+		log.Fatalf("failed to start order consumer: %v", err)
+	}
+
+	// 7. HTTP Handlers (via provider)
 	productHandlers := provider.NewProductHandlers(db, idGen)
+	placeOrderHandler := apporder.NewPlaceOrderHandler(stockCache, producer)
+
 	handlers := &httpserver.Handlers{
 		ProductCommand: productHandlers.Command,
 		ProductQuery:   productHandlers.Query,
+		Order:          httporder.NewHandler(placeOrderHandler),
 	}
 
-	// 4. Router
+	// 8. Router
 	router := httpserver.NewRouter(handlers)
 	engine := router.Setup()
 
-	// 5. Start Server
+	// 9. Start Server
 	port := getEnv("APP_PORT", "8080")
 	log.Printf("Starting server on port %s...", port)
 	if err := engine.Run(":" + port); err != nil {

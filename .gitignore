@@ -41,3 +41,7 @@ redis_data/
 kafka_data/
 prometheus_data/
 grafana_data/
+
+
+.claude/
+.claude

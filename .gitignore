@@ -45,3 +45,5 @@ grafana_data/
 
 .claude/
 .claude
+
+/api
